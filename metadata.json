@@ -1,0 +1,5 @@
+{
+  "name": "금쪽이 모니터링",
+  "description": "금쪽이 기기들의 대화 기록을 모니터링하고 관리하는 대시보드입니다.",
+  "requestFramePermissions": []
+}
