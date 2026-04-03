@@ -4,12 +4,62 @@ import bcrypt from "bcryptjs";
 import axios from "axios";
 import dotenv from "dotenv";
 import jwt from "jsonwebtoken";
+import { createProxyMiddleware, responseInterceptor } from "http-proxy-middleware";
 
 dotenv.config();
 
 import { PGlite } from "@electric-sql/pglite";
 
 const app = express();
+
+// Proxy middleware MUST be before body parsers
+// Intercept absolute paths from the iframe
+app.use((req, res, next) => {
+  const referer = req.headers.referer || '';
+  if (referer.includes('/telliot-proxy/') && !req.path.startsWith('/telliot-proxy')) {
+    // Rewrite the URL to go through our proxy
+    req.url = '/telliot-proxy' + req.url;
+  }
+  next();
+});
+
+app.use('/telliot-proxy', createProxyMiddleware({
+  target: 'https://edu.telliot.co.kr',
+  changeOrigin: true,
+  pathRewrite: {
+    '^/telliot-proxy': '',
+  },
+  selfHandleResponse: true,
+  onProxyRes: responseInterceptor(async (responseBuffer, proxyRes, req, res) => {
+    const contentType = proxyRes.headers['content-type'];
+    if (contentType && contentType.includes('text/html')) {
+      let html = responseBuffer.toString('utf8');
+      // Inject base tag and mock localStorage to prevent SecurityError in iframe
+      html = html.replace(/<head>/i, `<head>
+        <base href="/telliot-proxy/">
+        <script>
+          // Mock localStorage and sessionStorage to prevent 3rd party cookie blocking errors
+          try {
+            var test = window.localStorage;
+          } catch (e) {
+            var memoryStorage = {
+              _data: {},
+              setItem: function(id, val) { return this._data[id] = String(val); },
+              getItem: function(id) { return this._data.hasOwnProperty(id) ? this._data[id] : undefined; },
+              removeItem: function(id) { return delete this._data[id]; },
+              clear: function() { return this._data = {}; }
+            };
+            Object.defineProperty(window, 'localStorage', { value: memoryStorage });
+            Object.defineProperty(window, 'sessionStorage', { value: memoryStorage });
+          }
+        </script>
+      `);
+      return html;
+    }
+    return responseBuffer;
+  }),
+}));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -309,50 +359,6 @@ app.get("/api/devices", authenticate, async (req, res) => {
   } catch (err: any) {
     console.error("[API] /api/devices error:", err.message);
     res.status(500).json({ error: "Internal server error" });
-  }
-});
-
-app.get("/api/proxy/:deviceId", authenticate, async (req, res) => {
-  const user = (req as any).user;
-  const { deviceId } = req.params;
-  
-  try {
-    const { rows } = await dbQuery("SELECT allowed_devices FROM device_groups WHERE group_name = $1", [user.group_name]);
-    const allowed = rows.length > 0 ? JSON.parse(rows[0].allowed_devices) : [];
-
-    if (!allowed.includes(deviceId) && user.group_name !== "admin") {
-      res.status(403).json({ error: "Access denied" });
-      return;
-    }
-
-    const url = `https://edu.telliot.co.kr/device-chat-list/${deviceId}`;
-    const response = await axios.get(url, {
-      timeout: 20000,
-      responseType: 'arraybuffer',
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-      }
-    });
-
-    const headers = { ...response.headers } as any;
-    delete headers['x-frame-options'];
-    delete headers['content-security-policy'];
-    delete headers['set-cookie'];
-    delete headers['transfer-encoding'];
-    
-    res.set(headers);
-
-    const contentType = headers['content-type'] || '';
-    if (contentType.includes('text/html')) {
-      let html = response.data.toString('utf-8');
-      html = html.replace(/<head>/i, '<head><base href="https://edu.telliot.co.kr/">');
-      res.send(html);
-    } else {
-      res.send(response.data);
-    }
-  } catch (error: any) {
-    console.error("Proxy error:", error.message);
-    res.status(500).json({ error: "Failed to fetch device data" });
   }
 });
 
