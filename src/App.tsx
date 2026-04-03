@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { LogIn, LogOut, Smartphone, Shield, User, ChevronRight, Loader2, Search, Star, Edit2, Clock, List, Settings, Users, FolderKey, Plus, Trash2, X } from "lucide-react";
+import { LogIn, LogOut, Smartphone, Shield, User, ChevronRight, Loader2, Search, Star, Edit2, Clock, List, Settings, Users, FolderKey, Plus, Trash2, X, ExternalLink } from "lucide-react";
 
 interface UserInfo {
   username: string;
@@ -247,11 +247,6 @@ export default function App() {
   const handleDeviceClick = (deviceId: string) => {
     markAsViewed(deviceId);
     setSelectedDevice(deviceId);
-  };
-
-  const getProxyUrl = (deviceId: string) => {
-    const token = localStorage.getItem("token");
-    return `/api/proxy/${deviceId}?token=${token}`;
   };
 
   // Admin Actions
@@ -690,17 +685,38 @@ export default function App() {
                       )}
                     </div>
                   </div>
-                  <div className="bg-primary-container/20 text-primary px-4 py-2 rounded-full text-[0.75rem] font-bold uppercase tracking-wide flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                    실시간 연결
+                  <div className="flex items-center gap-3">
+                    <a
+                      href={`https://edu.telliot.co.kr/device-chat-list/${selectedDevice}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 px-4 py-2 rounded-full bg-primary text-white hover:bg-primary/90 transition-colors font-bold text-[0.875rem] shadow-sm"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                      <span className="hidden sm:inline">새 창에서 열기</span>
+                    </a>
+                    <div className="bg-primary-container/20 text-primary px-4 py-2 rounded-full text-[0.75rem] font-bold uppercase tracking-wide flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                      실시간 연결
+                    </div>
                   </div>
                 </div>
-                <div className="flex-1 relative bg-surface-low">
+                <div className="flex-1 relative bg-surface-low flex flex-col items-center justify-center">
                   <iframe
-                    src={getProxyUrl(selectedDevice)}
-                    className="absolute inset-0 w-full h-full border-none"
+                    src={`https://edu.telliot.co.kr/device-chat-list/${selectedDevice}`}
+                    className="absolute inset-0 w-full h-full border-none z-10"
                     title={`Device ${selectedDevice}`}
+                    sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-top-navigation-by-user-activation"
                   />
+                  {/* Fallback message behind the iframe */}
+                  <div className="absolute inset-0 flex flex-col items-center justify-center text-on-surface/50 z-0 p-8 text-center">
+                    <ExternalLink className="w-12 h-12 mb-4 opacity-20" />
+                    <p className="font-bold mb-2 text-lg">화면이 하얗게 보이나요?</p>
+                    <p className="text-sm max-w-md leading-relaxed">
+                      브라우저의 강력한 보안 정책(서드파티 쿠키 차단 등)으로 인해 외부 사이트를 이 화면 안에 직접 띄울 수 없는 상태입니다.<br/><br/>
+                      우측 상단의 <strong className="text-primary">새 창에서 열기</strong> 버튼을 클릭하시면 정상적으로 확인하실 수 있습니다.
+                    </p>
+                  </div>
                 </div>
               </div>
             </motion.div>
