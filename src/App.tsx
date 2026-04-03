@@ -249,6 +249,11 @@ export default function App() {
     setSelectedDevice(deviceId);
   };
 
+  const getProxyUrl = (deviceId: string) => {
+    const token = localStorage.getItem("token");
+    return `/api/proxy/${deviceId}?token=${token}`;
+  };
+
   // Admin Actions
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -692,7 +697,7 @@ export default function App() {
                 </div>
                 <div className="flex-1 relative bg-surface-low">
                   <iframe
-                    src={`/telliot-proxy/device-chat-list/${selectedDevice}`}
+                    src={getProxyUrl(selectedDevice)}
                     className="absolute inset-0 w-full h-full border-none"
                     title={`Device ${selectedDevice}`}
                   />
